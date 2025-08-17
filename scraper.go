@@ -71,7 +71,15 @@ func NewDjinniScraper() *DjinniScraper {
 }
 
 func (s *DjinniScraper) Jobs() ([]Job, error) {
-	resp, err := s.client.Get("https://djinni.co/jobs/?primary_keyword=JavaScript&primary_keyword=Angular&primary_keyword=React.js&primary_keyword=Svelte&primary_keyword=Vue.js&primary_keyword=Markup")
+	req, err := http.NewRequest("GET", "https://djinni.co/jobs/?primary_keyword=JavaScript&primary_keyword=Angular&primary_keyword=React.js&primary_keyword=Svelte&primary_keyword=Vue.js&primary_keyword=Markup", nil)
+	if err != nil {
+		return nil, fmt.Errorf("djinni: %w", err)
+	}
+
+	// Djinni shows old jobs if you don't look like a browser.
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("djinni: %w", err)
 	}

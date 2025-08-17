@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+// Telegram has 4096-character limit for messages, using 4000 to be safe.
+const telegramMsgLimit = 4000
+
 type TelegramBot struct {
 	token  string
 	chatID string
@@ -23,22 +26,25 @@ func NewTelegramBot(token, chatID string) *TelegramBot {
 }
 
 func (t *TelegramBot) Send(jobs []Job) error {
-	msg := t.formatMessage(jobs)
-	return t.sendMessage(msg)
-}
-
-func (t *TelegramBot) formatMessage(jobs []Job) string {
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("%d new jobs found\n\n", len(jobs)))
-
-	for _, j := range jobs {
-		b.WriteString(fmt.Sprintf("%s в %s (%s)\n\n", j.Title, j.Company, j.URL))
+	var buf strings.Builder
+	buf.WriteString(fmt.Sprintf("%d new jobs found\n\n", len(jobs)))
+	for _, job := range jobs {
+		line := fmt.Sprintf("%s в %s (%s)\n\n", job.Title, job.Company, job.URL)
+		if buf.Len()+len(line) > telegramMsgLimit {
+			if err := t.send(buf.String()); err != nil {
+				return err
+			}
+			buf.Reset()
+		}
+		buf.WriteString(line)
 	}
-
-	return b.String()
+	if buf.Len() > 0 {
+		return t.send(buf.String())
+	}
+	return nil
 }
 
-func (t *TelegramBot) sendMessage(text string) error {
+func (t *TelegramBot) send(text string) error {
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", t.token)
 
 	payload := map[string]interface{}{
@@ -52,21 +58,14 @@ func (t *TelegramBot) sendMessage(text string) error {
 		return fmt.Errorf("telegram: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("telegram: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := t.client.Do(req)
+	resp, err := http.Post(url, "application/json", bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("telegram: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("telegram api %d", resp.StatusCode)
+		return fmt.Errorf("telegram: status %d", resp.StatusCode)
 	}
 
 	return nil

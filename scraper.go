@@ -71,7 +71,21 @@ func NewDjinniScraper() *DjinniScraper {
 }
 
 func (s *DjinniScraper) Jobs() ([]Job, error) {
-	resp, err := s.client.Get("https://djinni.co/jobs/?primary_keyword=JavaScript&primary_keyword=Angular&primary_keyword=React.js&primary_keyword=Svelte&primary_keyword=Vue.js&primary_keyword=Markup")
+	req, err := http.NewRequest("GET", "https://djinni.co/jobs/?primary_keyword=JavaScript&primary_keyword=Angular&primary_keyword=React.js&primary_keyword=Svelte&primary_keyword=Vue.js&primary_keyword=Markup", nil)
+	if err != nil {
+		return nil, fmt.Errorf("djinni: %w", err)
+	}
+
+	// Seems like these headers are not set, Djinni might return a different page or block the request
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Set("Accept-Encoding", "gzip, deflate")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
+	req.Header.Set("Referer", "https://djinni.co/")
+
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("djinni: %w", err)
 	}

@@ -1,0 +1,34 @@
+name: jobbuzz
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.25.0'
+
+      - name: Get deps
+        run: go mod tidy
+
+      - name: Check jobs
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: go run .
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "hrytsak.dev@gmail.com"
+          git config --local user.name "dmtrhdev"
+          git add known_jobs.json
+          git diff --staged --quiet || git commit -m "Update known jobs"
+          git push
